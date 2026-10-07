@@ -1,13 +1,13 @@
 # Australian Aboriginal Language Explorer
 
-This project is a small Python web app that loads a CSV dataset of Australian Aboriginal language records and presents it in a browser-based interface. The app lets you search records, view catalogue status and location summaries, and explore the supplied dataset in a simple interactive UI.
+This project is a small Python web app that includes a bundled copy of an Australian Aboriginal language catalogue and presents it in a browser-based interface. The app lets you search records, view catalogue status and location summaries, and explore the dataset in a simple interactive UI.
 
 ## Installation
 
 1. Open a terminal in the project directory:
 
    ```bash
-   cd /path/to/file/location
+   cd /path/to/CITS1501/Assignment
    ```
 
 2. Create and activate a virtual environment if you want an isolated setup:
@@ -23,7 +23,11 @@ This project is a small Python web app that loads a CSV dataset of Australian Ab
    python --version
    ```
 
-4. No extra packages are required for the app itself because it uses the Python standard library only.
+4. Install the app's pandas dependency:
+
+   ```bash
+   python3 -m pip install -r requirements.txt
+   ```
 
 ## Running the app
 
@@ -47,25 +51,25 @@ Once the app is running:
 
 - Open the Home page to see a summary of the dataset.
 - Select Explore Languages to search the catalogue by language name, code, state/territory, or status.
-- Select Data to view record totals and summary statistics.
+- Select Data to view record totals, summary statistics, and a bar chart of distinct catalogue language names by state or territory.
 - Use the search box to quickly filter the table.
 
-The app reads the dataset from:
+The dataset is bundled in `embedded_data.py`. Keep `langexp.py` and `embedded_data.py` together when sharing or running the application. The CSV in `data/pracset.csv` is retained as the source copy but is not required at runtime.
 
-```text
-./data/austlang.csv
-```
-
-It validates that the CSV contains the expected columns before running, so missing or malformed data will stop the app with a clear error message.
+The app validates that the bundled CSV contains the expected columns before running, so missing or malformed data will stop the app with a clear error message.
 
 ## Testing
 
-This project does not currently include a formal automated test suite, but you can still run a quick verification to make sure the app starts cleanly.
+The project includes eight automated tests covering the data-loading and validation paths, state-counting logic, edge cases, and HTTP routes. Run them from the Assignment folder with:
+
+```bash
+python3 -m unittest discover -s tests -v
+```
 
 ### Syntax check
 
 ```bash
-python -m py_compile langexp.py
+python -m py_compile langexp.py embedded_data.py
 ```
 
 This checks that the Python file has valid syntax.
@@ -83,19 +87,20 @@ If you want to do a simple import-level validation from the terminal:
 
 ```bash
 python - <<'PY'
-from pathlib import Path
 import langexp
-records = langexp.load_records(Path('data/austlang.csv'))
+records = langexp.load_records()
 print(f"Loaded {len(records)} records")
 PY
 ```
 
-This should print the number of loaded dataset records and confirms the CSV can be read successfully.
+This should print the number of bundled dataset records and confirms the data can be read successfully.
 
 ## Project files
 
 - `langexp.py` — main application entry point
-- `data/austlang.csv` — source dataset used by the explorer
+- `embedded_data.py` — compressed dataset bundled with the application
+- `requirements.txt` — Python package dependencies
+- `data/pracset.csv` — source copy of the dataset; not needed to run the app
 - `AI-LOG.md` — assignment notes/log
 
 ## Notes
