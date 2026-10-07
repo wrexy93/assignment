@@ -9,6 +9,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer  # Serves th
 from io import StringIO  # Exposes the embedded CSV text to the CSV reader.
 from pathlib import Path  # Locates optional files and the README beside this script.
 
+import pandas as pd  # Summarizes distinct catalogue names by state or territory.
+
 from embedded_data import DATASET_GZIP_BASE64  # Bundles the catalogue with the application.
 
 README_PATH = Path(__file__).resolve().parent / "README.md"  # Stores the project instructions for browser download.
@@ -65,6 +67,12 @@ td:first-child{font-weight:650}
 .bar-track{height:10px;background:#e4eae4}
 .bar{height:100%;background:var(--coral)}
 .count-value{text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
+.state-chart{display:grid;gap:11px;margin-top:18px}
+.state-chart-row{display:grid;grid-template-columns:54px minmax(0,1fr) 52px;align-items:center;gap:12px}
+.state-chart-label{font-weight:750;font-size:14px}
+.state-chart-track{height:20px;background:#e5ebe7}
+.state-chart-bar{height:100%;min-width:2px;border-radius:2px}
+.state-chart-value{text-align:right;font-variant-numeric:tabular-nums;font-weight:750}
 .unavailable{padding:14px;background:white;border:1px dashed #aebdb4;color:var(--muted)}
 footer{max-width:1180px;margin:auto;padding:0 24px 26px;color:var(--muted);font-size:13px}
 @media(max-width:680px){.topbar{align-items:flex-start;flex-direction:column;gap:10px}.nav{width:100%}.nav button{flex:1;padding:9px 5px;font-size:14px}main{padding:30px 16px 42px}h1{font-size:31px}.data-grid{grid-template-columns:1fr;gap:24px}.count-row{grid-template-columns:minmax(110px,145px) 1fr 38px;gap:7px}.metrics{gap:8px}.metric{padding:13px}.metric strong{font-size:25px}.searchbar{align-items:stretch;flex-direction:column}.result-count{align-self:flex-end}}
@@ -104,12 +112,13 @@ footer{max-width:1180px;margin:auto;padding:0 24px 26px;color:var(--muted);font-
 <section class="page" id="data" hidden>
 <p class="eyebrow">Dataset summary</p>
 <h1>Data</h1>
-<p class="intro">Counts are calculated from the supplied CSV. A catalogue record is not necessarily a distinct language or evidence of current speaker vitality.</p>
+<p class="intro">Summaries are calculated from the bundled catalogue. Record totals and distinct language names are different measures, and the catalogue does not show current speaker counts.</p>
 <div class="actions" style="margin-top: 12px; margin-bottom: 20px;">
 <button class="action secondary" id="download-readme" type="button">Download README.md</button>
 </div>
 <div class="metrics"><div class="metric"><strong id="record-total">—</strong><span>CATALOGUE RECORDS</span></div><div class="metric"><strong id="name-total">—</strong><span>DISTINCT PRIMARY NAMES</span></div></div>
 <div class="data-grid">
+<section class="data-section" style="grid-column:1/-1"><h2>Distinct catalogue language names by state or territory</h2><p class="section-note">A name linked to multiple states or territories is counted once in each. These are catalogue associations, not estimates of current speakers.</p><div class="state-chart" id="state-language-chart" aria-label="Bar chart of distinct catalogue language names by state or territory"></div></section>
 <section class="data-section"><h2>Records by language status</h2><p class="section-note">These are the CSV's record-status labels, not active / inactive vitality ratings.</p><div id="status-counts"></div></section>
 <section class="data-section"><h2>Most represented geographic areas</h2><p class="section-note">Distinct primary names by state or territory. Names linked to multiple jurisdictions appear in each.</p><div id="place-counts"></div><p class="section-note" id="missing-places"></p></section>
 <section class="data-section"><h2>Distribution across major regions</h2><p class="unavailable">Unavailable: the CSV has no region or major-region field. No regional values have been inferred.</p></section>
@@ -124,13 +133,16 @@ let records=[];
 const byId=id=>document.getElementById(id);
 function showPage(name){document.querySelectorAll(".page").forEach(page=>{page.hidden=page.id!==name});document.querySelectorAll("[data-page]").forEach(button=>{if(button.tagName==="BUTTON"&&button.closest("nav")){if(button.dataset.page===name){button.setAttribute("aria-current","page")}else{button.removeAttribute("aria-current")}}});window.scrollTo(0,0)}
 function addCountRows(target,counts,labels={}){const container=byId(target);container.replaceChildren();const maximum=Math.max(1,...Object.values(counts));Object.entries(counts).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])).forEach(([key,count])=>{const row=document.createElement("div");row.className="count-row";const label=document.createElement("span");label.className="count-label";label.textContent=labels[key]||key;const track=document.createElement("div");track.className="bar-track";const bar=document.createElement("div");bar.className="bar";bar.style.width=`${count/maximum*100}%`;track.append(bar);const value=document.createElement("span");value.className="count-value";value.textContent=count.toLocaleString();row.append(label,track,value);container.append(row)})}
+function renderStateChart(counts){const container=byId("state-language-chart");container.replaceChildren();const colors=["#187C78","#D45E45","#3974A5","#B18419","#765A9E","#47845B","#C04D79","#54727C","#8A683D"];const maximum=Math.max(1,...Object.values(counts));Object.entries(counts).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])).forEach(([state,count],index)=>{const row=document.createElement("div");row.className="state-chart-row";const label=document.createElement("span");label.className="state-chart-label";label.textContent=state;const track=document.createElement("div");track.className="state-chart-track";const bar=document.createElement("div");bar.className="state-chart-bar";bar.style.width=`${count/maximum*100}%`;bar.style.backgroundColor=colors[index%colors.length];bar.setAttribute("aria-hidden","true");track.append(bar);const value=document.createElement("span");value.className="state-chart-value";value.textContent=count.toLocaleString();row.append(label,track,value);container.append(row)})}
 function renderData(){const uniqueNames=new Set(records.map(row=>row.primary_name.trim().toLocaleLowerCase()).filter(Boolean));byId("record-total").textContent=records.length.toLocaleString();byId("name-total").textContent=uniqueNames.size.toLocaleString();const statusCounts={};const placeNames={};let missingPlaces=0;records.forEach(row=>{const status=row.status||"Unspecified";statusCounts[status]=(statusCounts[status]||0)+1;const places=row.state_territory.split(",").map(place=>place.trim()).filter(Boolean);if(!places.length){missingPlaces+=1}places.forEach(place=>{if(!placeNames[place]){placeNames[place]=new Set()}if(row.primary_name.trim()){placeNames[place].add(row.primary_name.trim().toLocaleLowerCase())}})});addCountRows("status-counts",statusCounts);const placeCounts=Object.fromEntries(Object.entries(placeNames).map(([place,names])=>[place,names.size]));addCountRows("place-counts",placeCounts,stateNames);byId("missing-places").textContent=`${missingPlaces.toLocaleString()} records have no state or territory value.`}
 function renderResults(query=""){const term=query.trim().toLocaleLowerCase();const matches=records.filter(row=>!term||Object.values(row).some(value=>value.toLocaleLowerCase().includes(term)));const body=byId("results");body.replaceChildren();matches.forEach(row=>{const tr=document.createElement("tr");[row.primary_name||"Unnamed",row.austlang_code,row.state_territory.replaceAll(",",", ")||"Not recorded",row.status||"Unspecified"].forEach(value=>{const cell=document.createElement("td");cell.textContent=value;tr.append(cell)});body.append(tr)});byId("result-count").textContent=`${matches.length.toLocaleString()} records`;byId("empty").hidden=matches.length!==0}
 document.querySelectorAll("[data-page]").forEach(button=>button.addEventListener("click",()=>showPage(button.dataset.page)));
 byId("download-readme").addEventListener("click",()=>{window.location.href="/download/readme";});
 byId("search").addEventListener("input",event=>renderResults(event.target.value));
 async function start(){try{const response=await fetch("/api/records");if(!response.ok){throw new Error(`Dataset request failed (${response.status})`)}records=await response.json();renderData();renderResults()}catch(error){document.querySelector("main").innerHTML=`<h1>Dataset could not be loaded</h1><p>${error.message}</p>`}}
+async function loadStateChart(){try{const response=await fetch("/api/languages-by-state");if(!response.ok){throw new Error(`State summary request failed (${response.status})`)}renderStateChart(await response.json())}catch(error){byId("state-language-chart").textContent=error.message}}
 start();
+loadStateChart();
 </script>
 </body>
 </html>"""  # Contains the browser pages, responsive design, search, and visual summaries.
@@ -155,8 +167,21 @@ def load_records(file_path=None):  # Reads and validates the bundled CSV or an o
 	return records  # Supplies validated records to the web server.
 
 
+def count_languages_by_state(records):  # Counts distinct catalogue names in every listed state or territory.
+	data = pd.DataFrame(records, columns=["primary_name", "state_territory"])
+	data["state_territory"] = data["state_territory"].str.split(",")
+	data = data.explode("state_territory")
+	data["state_territory"] = data["state_territory"].str.strip()
+	data["name_key"] = data["primary_name"].str.strip().str.casefold()
+	data = data.loc[(data["state_territory"] != "") & (data["name_key"] != "")]
+	data = data.drop_duplicates(["state_territory", "name_key"])
+	counts = data.groupby("state_territory")["name_key"].nunique().sort_values(ascending=False)
+	return counts.to_dict()
+
+
 class AppHandler(BaseHTTPRequestHandler):  # Routes browser page and dataset requests.
 	records = []  # Holds the validated dataset shared by request handlers.
+	languages_by_state = {}  # Holds pandas-computed distinct-name counts for the Data page.
 
 	def do_GET(self):  # Responds to browser GET requests.
 		if self.path == "/":  # Serves the main application page.
@@ -165,6 +190,9 @@ class AppHandler(BaseHTTPRequestHandler):  # Routes browser page and dataset req
 		elif self.path == "/api/records":  # Serves actual CSV rows to the browser.
 			content = json.dumps(self.records, ensure_ascii=False).encode("utf-8")  # Encodes names and records as JSON.
 			content_type = "application/json; charset=utf-8"  # Labels the response as JSON.
+		elif self.path == "/api/languages-by-state":  # Serves pandas-computed state and territory counts.
+			content = json.dumps(self.languages_by_state, ensure_ascii=False).encode("utf-8")
+			content_type = "application/json; charset=utf-8"
 		elif self.path == "/download/readme":  # Downloads the project README for the user.
 			if not README_PATH.exists():
 				self.send_error(404, "README not found")
@@ -195,6 +223,7 @@ class AppHandler(BaseHTTPRequestHandler):  # Routes browser page and dataset req
 
 def create_server(port=0):  # Creates a local server on an available port by default.
 	AppHandler.records = load_records()  # Loads bundled data before accepting requests.
+	AppHandler.languages_by_state = count_languages_by_state(AppHandler.records)
 	return ThreadingHTTPServer(("127.0.0.1", port), AppHandler)  # Serves only on this computer.
 
 
