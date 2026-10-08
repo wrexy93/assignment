@@ -7,7 +7,7 @@ This project is a small Python web app that loads a CSV dataset of Australian Ab
 1. Open a terminal in the project directory:
 
    ```bash
-   cd /path/to/CITS1501/Assignment
+   cd /path/to/file/location
    ```
 
 2. Create and activate a virtual environment if you want an isolated setup:
@@ -85,7 +85,7 @@ If you want to do a simple import-level validation from the terminal:
 python - <<'PY'
 from pathlib import Path
 import langexp
-records = langexp.load_records(Path('data/pracset.csv'))
+records = langexp.load_records(Path('data/austlang.csv'))
 print(f"Loaded {len(records)} records")
 PY
 ```
