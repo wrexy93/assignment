@@ -1,18 +1,14 @@
 """Serve the Australian Aboriginal Language Explorer in a browser."""  # Documents the app entry point.
 
-import base64  # Decodes the bundled dataset payload.
 import csv  # Reads dataset rows.
-import gzip  # Decompresses the bundled dataset payload.
 import json  # Encodes rows for the browser API.
 import webbrowser  # Opens the running app in the user's browser.
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer  # Serves the local app and its data.
-from io import StringIO  # Exposes the embedded CSV text to the CSV reader.
 from pathlib import Path  # Locates optional files and the README beside this script.
 
 import pandas as pd  # Summarizes distinct catalogue names by state or territory.
 
-from embedded_data import DATASET_GZIP_BASE64  # Bundles the catalogue with the application.
-
+DATASET_PATH = Path(__file__).resolve().parent / "data" / "pracset.csv"  # Locates the required catalogue CSV.
 README_PATH = Path(__file__).resolve().parent / "README.md"  # Stores the project instructions for browser download.
 REQUIRED_COLUMNS = {"austlang_code", "primary_name", "lat", "lon", "state_territory", "status"}  # Defines the CSV fields used by the app.
 
@@ -148,13 +144,10 @@ loadStateChart();
 </html>"""  # Contains the browser pages, responsive design, search, and visual summaries.
 
 
-def load_records(file_path=None):  # Reads and validates the bundled CSV or an optional replacement file.
-	if file_path is None:  # Uses embedded data by default so no separate CSV download is needed.
-		csv_text = gzip.decompress(base64.b64decode(DATASET_GZIP_BASE64)).decode("utf-8-sig")
-		source = StringIO(csv_text)
-	else:  # Allows a replacement CSV for testing or customized catalogues.
-		source = Path(file_path).open("r", encoding="utf-8-sig", newline="")
-	with source:  # Supports UTF-8 names and CSV line endings.
+
+def load_records(file_path=None):  # Reads and validates the project CSV or an optional replacement file.
+	path = DATASET_PATH if file_path is None else Path(file_path)
+	with path.open("r", encoding="utf-8-sig", newline="") as source:  # Supports UTF-8 names and CSV line endings.
 		reader = csv.DictReader(source)  # Reads rows using the CSV header names.
 		if not reader.fieldnames:  # Checks that the CSV has a header row.
 			raise ValueError("The dataset has no header row.")  # Reports an invalid or empty CSV.
