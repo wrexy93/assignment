@@ -39,7 +39,7 @@ class LanguageExplorerApp(tk.Tk):
 		self.tabs.add(self.quiz, text="Quiz")
 
 		self._build_home()
-		self._placeholder(self.explore, "Explore Languages")
+		self._build_explore()
 		self._placeholder(self.statistics, "Language Statistics")
 		self._placeholder(self.quiz, "Take Quiz")
 
@@ -64,6 +64,36 @@ class LanguageExplorerApp(tk.Tk):
 		actions.pack()
 		self._button(actions, "Explore Languages", lambda: self.tabs.select(self.explore)).pack(side="left", padx=10)
 		self._button(actions, "Take Quiz", lambda: self.tabs.select(self.quiz), secondary=True).pack(side="left", padx=10)
+
+	def _build_explore(self):
+		# Add the page heading to the Explore tab.
+		tk.Label(self.explore, text="Explore Languages", background="#f7f3eb", foreground="#173f35", font=("Arial", 24, "bold")).pack(anchor="w")
+		# Explain what the user can do on this page.
+		tk.Label(self.explore, text="Select a language to learn about its Country.", background="#f7f3eb", foreground="#3e4b46", font=("Arial", 12)).pack(anchor="w", pady=(6, 20))
+		# Create a list showing the available languages.
+		language_list = tk.Listbox(self.explore, width=28, height=10, bg="white", fg="#173f35", selectbackground="#d27d4c", font=("Arial", 12), relief="flat")
+		language_list.pack(side="left", fill="y", padx=(0, 24))
+		# Create an area for information about the selected language.
+		details = tk.Label(self.explore, text="Choose a language from the list.", background="white", foreground="#3e4b46", font=("Arial", 13), justify="left", anchor="nw", padx=24, pady=24, wraplength=430)
+		details.pack(side="left", fill="both", expand=True)
+		# Store the language name, Country, and description together.
+		languages = [
+			("Bardi", "West Kimberley", "Bardi is connected to the Dampier Peninsula and saltwater Country."),
+			("Noongar", "South-west Western Australia", "Noongar languages are spoken across the south-west of Western Australia."),
+			("Wangkatha", "Goldfields", "Wangkatha is associated with the eastern Goldfields and Kalgoorlie region."),
+			("Yawuru", "Broome and coastal Kimberley", "Yawuru is the language of the Broome area and Roebuck Bay."),
+		]
+		# Put every language name into the list on the page.
+		for name, _, _ in languages:
+			language_list.insert(tk.END, name)
+		# Display the selected language's information when the selection changes.
+		def show_details(_):
+			selected = language_list.curselection()
+			if selected:
+				name, country, description = languages[selected[0]]
+				details.config(text=f"{name}\n\nCountry: {country}\n\n{description}")
+		# Connect list selection events to the details function.
+		language_list.bind("<<ListboxSelect>>", show_details)
 
 	def _button(self, parent, text, command, secondary=False):
 		return tk.Button(

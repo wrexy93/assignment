@@ -1,6 +1,6 @@
 # Australian Aboriginal Language Explorer
 
-This project is a small Python web app that includes a bundled copy of an Australian Aboriginal language catalogue and presents it in a browser-based interface. The app lets you search records, view catalogue status and location summaries, and explore the dataset in a simple interactive UI.
+This project is a small Python web app that reads an Australian Aboriginal language catalogue from a CSV and presents it in a browser-based interface. The app lets you search records, view catalogue status and location summaries, and explore the dataset in a simple interactive UI.
 
 ## Installation
 
@@ -54,9 +54,9 @@ Once the app is running:
 - Select Data to view record totals, summary statistics, and a bar chart of distinct catalogue language names by state or territory.
 - Use the search box to quickly filter the table.
 
-The dataset is bundled in `embedded_data.py`. Keep `langexp.py` and `embedded_data.py` together when sharing or running the application. The CSV in `data/pracset.csv` is retained as the source copy but is not required at runtime.
+The app reads its dataset from `data/pracset.csv`, relative to the project folder. Keep that CSV with the application when sharing or running it.
 
-The app validates that the bundled CSV contains the expected columns before running, so missing or malformed data will stop the app with a clear error message.
+The app validates that the CSV contains the expected columns before running, so missing or malformed data will stop the app with a clear error message.
 
 ## Testing
 
@@ -69,7 +69,7 @@ python3 -m unittest discover -s tests -v
 ### Syntax check
 
 ```bash
-python -m py_compile langexp.py embedded_data.py
+python -m py_compile langexp.py
 ```
 
 This checks that the Python file has valid syntax.
@@ -93,14 +93,13 @@ print(f"Loaded {len(records)} records")
 PY
 ```
 
-This should print the number of bundled dataset records and confirms the data can be read successfully.
+This should print the number of dataset records and confirms the CSV can be read successfully.
 
 ## Project files
 
 - `langexp.py` — main application entry point
-- `embedded_data.py` — compressed dataset bundled with the application
 - `requirements.txt` — Python package dependencies
-- `data/pracset.csv` — source copy of the dataset; not needed to run the app
+- `data/pracset.csv` — dataset required by the application
 - `AI-LOG.md` — assignment notes/log
 
 ## Notes
