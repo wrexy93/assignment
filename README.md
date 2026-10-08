@@ -23,7 +23,7 @@ This project is a small Python web app that reads an Australian Aboriginal langu
    python --version
    ```
 
-4. Install the app's pandas dependency:
+4. Install the app's pandas and Matplotlib dependencies:
 
    ```bash
    python3 -m pip install -r requirements.txt
@@ -34,7 +34,7 @@ This project is a small Python web app that reads an Australian Aboriginal langu
 From the Assignment folder, run:
 
 ```bash
-python langexp.py
+python3 langexpnew.py
 ```
 
 This starts a local HTTP server and opens the app in your default browser automatically. The terminal will display the local URL, usually in the form:
@@ -51,7 +51,7 @@ Once the app is running:
 
 - Open the Home page to see a summary of the dataset.
 - Select Explore Languages to search the catalogue by language name, code, state/territory, or status.
-- Select Data to view record totals, summary statistics, and a bar chart of distinct catalogue language names by state or territory.
+- Select Data to view record totals, the state/territory bar chart, and the Matplotlib region-count, coordinate-completeness, and location charts.
 - Use the search box to quickly filter the table.
 
 The app reads its dataset from `data/pracset.csv`, relative to the project folder. Keep that CSV with the application when sharing or running it.
@@ -69,7 +69,7 @@ python3 -m unittest discover -s tests -v
 ### Syntax check
 
 ```bash
-python -m py_compile langexp.py
+python -m py_compile langexpnew.py visualize.py
 ```
 
 This checks that the Python file has valid syntax.
@@ -97,7 +97,8 @@ This should print the number of dataset records and confirms the CSV can be read
 
 ## Project files
 
-- `langexp.py` — main application entry point
+- `langexpnew.py` — main application entry point with the Data-page charts
+- `visualize.py` — Matplotlib chart-building functions
 - `requirements.txt` — Python package dependencies
 - `data/pracset.csv` — dataset required by the application
 - `AI-LOG.md` — assignment notes/log
