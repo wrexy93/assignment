@@ -53,7 +53,7 @@ Once the app is running:
 The app reads the dataset from:
 
 ```text
-./data/pracset.csv
+./data/austlang.csv
 ```
 
 It validates that the CSV contains the expected columns before running, so missing or malformed data will stop the app with a clear error message.
@@ -95,7 +95,7 @@ This should print the number of loaded dataset records and confirms the CSV can 
 ## Project files
 
 - `langexp.py` — main application entry point
-- `data/pracset.csv` — source dataset used by the explorer
+- `data/austlang.csv` — source dataset used by the explorer
 - `AI-LOG.md` — assignment notes/log
 
 ## Notes
