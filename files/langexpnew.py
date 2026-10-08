@@ -1,18 +1,14 @@
 """Serve the Australian Aboriginal Language Explorer in a browser."""  # Documents the app entry point.
 
-import base64  # Decodes the bundled dataset payload.
 import csv  # Reads dataset rows.
-import gzip  # Decompresses the bundled dataset payload.
 import json  # Encodes rows for the browser API.
 import sys  # Lets Python find the data and analysis modules in the files folder.
 import webbrowser  # Opens the running app in the user's browser.
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer  # Serves the local app and its data.
-from io import StringIO  # Exposes the embedded CSV text to the CSV reader.
+from io import BytesIO  # Holds generated Matplotlib charts in memory for HTTP responses.
 from pathlib import Path  # Locates optional files and the README beside this script.
 
 import pandas as pd  # Summarizes distinct catalogue names by state or territory.
-
-from embedded_data import DATASET_GZIP_BASE64  # Bundles the catalogue with the application.
 
 for _folder in (Path(__file__).resolve().parent / "files", Path(__file__).resolve().parent.parent / "files"):  # Looks for the files folder beside this script or one level up, so it works from the project root or from tests.
 	if _folder.is_dir() and str(_folder) not in sys.path:  # Skips folders that do not exist or are already on the path.
@@ -24,6 +20,7 @@ import similarity  # Provides the edit-distance fuzzy search and name-similarity
 import visualize  # Builds the matplotlib charts.
 
 README_PATH = Path(__file__).resolve().parent / "README.md"  # Stores the project instructions for browser download.
+DATASET_PATH = Path(__file__).resolve().parent / "data" / "pracset.csv"  # Loads the catalogue CSV stored with the project.
 REQUIRED_COLUMNS = {"austlang_code", "primary_name", "lat", "lon", "state_territory", "status"}  # Defines the CSV fields used by the app.
 
 PAGE = r"""<!doctype html>
@@ -83,6 +80,7 @@ td:first-child{font-weight:650}
 .state-chart-track{height:20px;background:#e5ebe7}
 .state-chart-bar{height:100%;min-width:2px;border-radius:2px}
 .state-chart-value{text-align:right;font-variant-numeric:tabular-nums;font-weight:750}
+.chart-image{display:block;width:100%;height:auto;background:white}
 .unavailable{padding:14px;background:white;border:1px dashed #aebdb4;color:var(--muted)}
 footer{max-width:1180px;margin:auto;padding:0 24px 26px;color:var(--muted);font-size:13px}
 @media(max-width:680px){.topbar{align-items:flex-start;flex-direction:column;gap:10px}.nav{width:100%}.nav button{flex:1;padding:9px 5px;font-size:14px}main{padding:30px 16px 42px}h1{font-size:31px}.data-grid{grid-template-columns:1fr;gap:24px}.count-row{grid-template-columns:minmax(110px,145px) 1fr 38px;gap:7px}.metrics{gap:8px}.metric{padding:13px}.metric strong{font-size:25px}.searchbar{align-items:stretch;flex-direction:column}.result-count{align-self:flex-end}}
@@ -122,13 +120,16 @@ footer{max-width:1180px;margin:auto;padding:0 24px 26px;color:var(--muted);font-
 <section class="page" id="data" hidden>
 <p class="eyebrow">Dataset summary</p>
 <h1>Data</h1>
-<p class="intro">Summaries are calculated from the bundled catalogue. Record totals and distinct language names are different measures, and the catalogue does not show current speaker counts.</p>
+<p class="intro">Summaries are calculated from the project CSV. Record totals and distinct language names are different measures, and the catalogue does not show current speaker counts.</p>
 <div class="actions" style="margin-top: 12px; margin-bottom: 20px;">
 <button class="action secondary" id="download-readme" type="button">Download README.md</button>
 </div>
 <div class="metrics"><div class="metric"><strong id="record-total">—</strong><span>CATALOGUE RECORDS</span></div><div class="metric"><strong id="name-total">—</strong><span>DISTINCT PRIMARY NAMES</span></div></div>
 <div class="data-grid">
 <section class="data-section" style="grid-column:1/-1"><h2>Distinct catalogue language names by state or territory</h2><p class="section-note">A name linked to multiple states or territories is counted once in each. These are catalogue associations, not estimates of current speakers.</p><div class="state-chart" id="state-language-chart" aria-label="Bar chart of distinct catalogue language names by state or territory"></div></section>
+<section class="data-section"><h2>Languages per region</h2><p class="section-note">Counts are based on each catalogue record's listed region codes.</p><img class="chart-image" src="/charts/regions.png" alt="Matplotlib bar chart showing the number of languages per region"></section>
+<section class="data-section"><h2>Location data completeness</h2><p class="section-note">Share of catalogue records with both latitude and longitude coordinates.</p><img class="chart-image" src="/charts/completeness.png" alt="Matplotlib pie chart showing records with and without coordinates"></section>
+<section class="data-section" style="grid-column:1/-1"><h2>Language locations</h2><p class="section-note">Coordinates are plotted as points, not as community-defined language boundaries.</p><img class="chart-image" src="/charts/locations.png" alt="Matplotlib scatter plot of catalogue language coordinates"></section>
 <section class="data-section"><h2>Records by language status</h2><p class="section-note">These are the CSV's record-status labels, not active / inactive vitality ratings.</p><div id="status-counts"></div></section>
 <section class="data-section"><h2>Most represented geographic areas</h2><p class="section-note">Distinct primary names by state or territory. Names linked to multiple jurisdictions appear in each.</p><div id="place-counts"></div><p class="section-note" id="missing-places"></p></section>
 <section class="data-section"><h2>Distribution across major regions</h2><p class="unavailable">Unavailable: the CSV has no region or major-region field. No regional values have been inferred.</p></section>
@@ -158,13 +159,10 @@ loadStateChart();
 </html>"""  # Contains the browser pages, responsive design, search, and visual summaries.
 
 
-def load_records(file_path=None):  # Reads and validates the bundled CSV or an optional replacement file.
-	if file_path is None:  # Uses embedded data by default so no separate CSV download is needed.
-		csv_text = gzip.decompress(base64.b64decode(DATASET_GZIP_BASE64)).decode("utf-8-sig")
-		source = StringIO(csv_text)
-	else:  # Allows a replacement CSV for testing or customized catalogues.
-		source = Path(file_path).open("r", encoding="utf-8-sig", newline="")
-	with source:  # Supports UTF-8 names and CSV line endings.
+
+def load_records(file_path=None):  # Reads and validates the project CSV or an optional replacement file.
+	path = DATASET_PATH if file_path is None else Path(file_path)
+	with path.open("r", encoding="utf-8-sig", newline="") as source:  # Supports UTF-8 names and CSV line endings.
 		reader = csv.DictReader(source)  # Reads rows using the CSV header names.
 		if not reader.fieldnames:  # Checks that the CSV has a header row.
 			raise ValueError("The dataset has no header row.")  # Reports an invalid or empty CSV.
@@ -189,9 +187,39 @@ def count_languages_by_state(records):  # Counts distinct catalogue names in eve
 	return counts.to_dict()
 
 
+def create_chart_images(records):  # Builds the visualizations as PNG responses without writing files.
+	plot_records = []
+	for record in records:
+		latitude = data_loader.parse_float(record.get("lat"))
+		longitude = data_loader.parse_float(record.get("lon"))
+		plot_records.append({
+			"name": record.get("primary_name", ""),
+			"code": record.get("austlang_code", ""),
+			"lat": latitude,
+			"lon": longitude,
+			"regions": data_loader.parse_regions(record.get("state_territory", "")),
+			"has_coordinates": latitude is not None and longitude is not None,
+			"description": "",
+		})
+
+	figures = {
+		"regions.png": visualize.region_count_chart(analysis.count_languages_per_region(plot_records)),
+		"completeness.png": visualize.completeness_pie_chart(analysis.coordinate_completeness(plot_records)),
+		"locations.png": visualize.language_map(plot_records),
+	}
+	images = {}
+	for filename, figure in figures.items():
+		image = BytesIO()
+		figure.savefig(image, format="png", dpi=120)
+		images["/charts/" + filename] = image.getvalue()
+		visualize.plt.close(figure)
+	return images
+
+
 class AppHandler(BaseHTTPRequestHandler):  # Routes browser page and dataset requests.
 	records = []  # Holds the validated dataset shared by request handlers.
 	languages_by_state = {}  # Holds pandas-computed distinct-name counts for the Data page.
+	chart_images = {}  # Holds Matplotlib PNGs generated from the current records.
 
 	def do_GET(self):  # Responds to browser GET requests.
 		if self.path == "/":  # Serves the main application page.
@@ -203,6 +231,9 @@ class AppHandler(BaseHTTPRequestHandler):  # Routes browser page and dataset req
 		elif self.path == "/api/languages-by-state":  # Serves pandas-computed state and territory counts.
 			content = json.dumps(self.languages_by_state, ensure_ascii=False).encode("utf-8")
 			content_type = "application/json; charset=utf-8"
+		elif self.path in self.chart_images:  # Serves a generated Matplotlib chart image.
+			content = self.chart_images[self.path]
+			content_type = "image/png"
 		elif self.path == "/download/readme":  # Downloads the project README for the user.
 			if not README_PATH.exists():
 				self.send_error(404, "README not found")
@@ -234,6 +265,7 @@ class AppHandler(BaseHTTPRequestHandler):  # Routes browser page and dataset req
 def create_server(port=0):  # Creates a local server on an available port by default.
 	AppHandler.records = load_records()  # Loads bundled data before accepting requests.
 	AppHandler.languages_by_state = count_languages_by_state(AppHandler.records)
+	AppHandler.chart_images = create_chart_images(AppHandler.records)
 	return ThreadingHTTPServer(("127.0.0.1", port), AppHandler)  # Serves only on this computer.
 
 
